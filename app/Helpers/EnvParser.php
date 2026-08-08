@@ -68,6 +68,7 @@ class EnvParser
             if ($wasDoubleQuoted) {
                 $value = preg_replace_callback('/\\\\(.)/s', fn (array $matches): string => match ($matches[1]) {
                     'n' => "\n",
+                    'r' => "\r",
                     '"' => '"',
                     '\\' => '\\',
                     default => $matches[0],
@@ -169,18 +170,31 @@ class EnvParser
                 continue;
             }
 
-            $needsQuotes = str_contains($value, "\n") ||
-                str_contains($value, ' ') ||
-                str_contains($value, '"') ||
-                str_contains($value, "'") ||
-                str_contains($value, '#');
+            $needsQuotes = preg_match('/\s/', $value) === 1
+                || str_contains($value, '#')
+                || str_starts_with($value, '"')
+                || str_starts_with($value, "'");
 
-            if ($needsQuotes) {
-                $escapedValue = str_replace(['\\', "\n", '"'], ['\\\\', '\\n', '\\"'], $value);
-                $lines[] = "{$key}=\"{$escapedValue}\"";
-            } else {
+            if (! $needsQuotes) {
                 $lines[] = "{$key}={$value}";
+
+                continue;
             }
+
+            if (
+                str_contains($value, '"')
+                && ! str_contains($value, "'")
+                && ! str_contains($value, '\\')
+                && ! str_contains($value, "\n")
+                && ! str_contains($value, "\r")
+            ) {
+                $lines[] = "{$key}='{$value}'";
+
+                continue;
+            }
+
+            $escapedValue = str_replace(['\\', "\n", "\r", '"'], ['\\\\', '\\n', '\\r', '\\"'], $value);
+            $lines[] = "{$key}=\"{$escapedValue}\"";
         }
 
         return implode("\n", $lines);
