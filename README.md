@@ -61,6 +61,6 @@ bash <(curl -Ls https://raw.githubusercontent.com/vitodeploy/vito/4.x/scripts/in
 - Tightenco
 - InertiaTables (Forjedio)
 
-### Powered by
+## Powered by
 
 [![JetBrains logo.](https://resources.jetbrains.com/storage/products/company/brand/logos/jetbrains.svg)](https://jb.gg/OpenSource)
