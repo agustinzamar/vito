@@ -1,1 +1,0 @@
-import{l as e,p as t}from"./utils-BXt4K30h.js";var n=t(e(),1);function r(e){let t=n.useRef({value:e,previous:e});return n.useMemo(()=>(t.current.value!==e&&(t.current.previous=t.current.value,t.current.value=e),t.current.previous),[e])}export{r as t};
