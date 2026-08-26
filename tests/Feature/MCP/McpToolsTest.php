@@ -195,6 +195,119 @@ test('list_servers requires a read-capable token', function () {
     expect($payload['error']['code'])->toBe('forbidden_ability');
 });
 
+test('get_server returns a single credential-free representation', function () {
+    /** @var Server $server */
+    $server = Server::factory()->create([
+        'user_id' => $this->user->id,
+        'project_id' => $this->user->current_project_id,
+    ]);
+
+    $plainToken = $this->user->createToken('mcp-read', ['read'])->plainTextToken;
+    $this->mcpInitialize($plainToken);
+
+    $response = $this->mcpCallTool('get_server', [
+        'project_id' => $this->user->current_project_id,
+        'server_id' => $server->id,
+    ]);
+
+    expect($response->json('result.isError'))->toBeFalse();
+
+    $payload = mcpToolPayload($response);
+
+    expect($payload['server']['id'])->toBe($server->id)
+        ->and(array_keys($payload['server']))->toEqual([
+        'id', 'project_id', 'name', 'ip', 'local_ip', 'port', 'os', 'status',
+        'auto_update', 'auto_update_schedule', 'last_update_check', 'created_at', 'updated_at',
+    ])
+        ->and(json_encode($payload))->not->toContain('super-secret')
+        ->not->toContain('AAAA')
+        ->not->toContain('provider_data');
+});
+
+test('get_server for another project\'s server returns not_found without leaking attributes', function () {
+    /** @var Project $scopedProject */
+    $scopedProject = Project::factory()->create();
+    $scopedProject->users()->create([
+        'user_id' => $this->user->id,
+        'role' => UserRole::USER,
+    ]);
+    $this->user->update(['current_project_id' => $scopedProject->id]);
+
+    /** @var Server $foreignServer */
+    $foreignServer = Server::factory()->create([
+        'user_id' => $this->user->id,
+        'project_id' => $this->user->current_project_id,
+    ]);
+
+    $plainToken = $this->user->createToken('mcp-scoped', ['read', 'project:'.$scopedProject->id])->plainTextToken;
+    $this->mcpInitialize($plainToken);
+
+    // Ask about the foreign server through an unrelated project id pair:
+    // the relationship lookup must simply find nothing.
+    $payload = mcpToolPayload($this->mcpCallTool('get_server', [
+        'project_id' => 999999,
+        'server_id' => $foreignServer->id,
+    ]));
+
+    expect($payload['error']['code'])->toBe('not_found')
+        ->and($payload['error']['message'])->toBe('The requested resource was not found.')
+        ->and(json_encode($payload))->not->toContain($foreignServer->name)
+        ->not->toContain((string) $foreignServer->ip)
+        ->not->toContain((string) $foreignServer->ssh_user);
+});
+
+test('get_server validates both ids and rejects out-of-scope or missing projects', function () {
+    /** @var Project $scopedProject */
+    $scopedProject = Project::factory()->create();
+    $scopedProject->users()->create([
+        'user_id' => $this->user->id,
+        'role' => UserRole::USER,
+    ]);
+    $this->user->update(['current_project_id' => $scopedProject->id]);
+
+    /** @var Project $targetProject */
+    $targetProject = Project::factory()->create();
+    $targetProject->users()->create([
+        'user_id' => $this->user->id,
+        'role' => UserRole::ADMIN,
+    ]);
+
+    $plainToken = $this->user->createToken('mcp-scoped', ['read', 'project:'.$scopedProject->id])->plainTextToken;
+    $this->mcpInitialize($plainToken);
+
+    // Missing server_id → validation naming the parameter.
+    expect(mcpToolPayload($this->mcpCallTool('get_server', [
+        'project_id' => $scopedProject->id,
+    ]))['error']['code'])->toBe('validation')
+    // Non-integer server_id → same validation shape.
+        ->and(mcpToolPayload($this->mcpCallTool('get_server', [
+            'project_id' => $scopedProject->id,
+            'server_id' => 'abc',
+        ]))['error']['code'])->toBe('validation')
+    // Token scoped elsewhere → forbidden_scope, no project name leaked.
+        ->and(mcpToolPayload($this->mcpCallTool('get_server', [
+            'project_id' => $targetProject->id,
+            'server_id' => 1,
+        ]))['error']['code'])->toBe('forbidden_scope')
+    // Missing project → not_found.
+        ->and(mcpToolPayload($this->mcpCallTool('get_server', [
+            'project_id' => 999999,
+            'server_id' => 1,
+        ]))['error']['code'])->toBe('not_found');
+});
+
+test('get_server requires a read-capable token', function () {
+    $plainToken = $this->user->createToken('mcp-write-only', ['write'])->plainTextToken;
+    $this->mcpInitialize($plainToken);
+
+    $payload = mcpToolPayload($this->mcpCallTool('get_server', [
+        'project_id' => $this->user->current_project_id,
+        'server_id' => 1,
+    ]));
+
+    expect($payload['error']['code'])->toBe('forbidden_ability');
+});
+
 test('tools/list exposes the registered read tools with schemas', function () {
     $plainToken = $this->user->createToken('mcp-discovery', ['read'])->plainTextToken;
     $this->mcpInitialize($plainToken);
