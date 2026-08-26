@@ -428,9 +428,9 @@ test('reboot_server with confirm dispatches RebootServer exactly once and return
 
     expect($payload['server']['id'])->toBe($server->id)
         ->and(array_keys($payload['server']))->toEqual([
-        'id', 'project_id', 'name', 'ip', 'local_ip', 'port', 'os', 'status',
-        'auto_update', 'auto_update_schedule', 'last_update_check', 'created_at', 'updated_at',
-    ])
+            'id', 'project_id', 'name', 'ip', 'local_ip', 'port', 'os', 'status',
+            'auto_update', 'auto_update_schedule', 'last_update_check', 'created_at', 'updated_at',
+        ])
         ->and(json_encode($payload))->not->toContain('provider_data')
         ->not->toContain('AAAA');
 });
@@ -444,12 +444,21 @@ test('tools/list exposes the registered read tools with schemas', function () {
     $tools = collect($response->json('result.tools'));
     $names = $tools->pluck('name')->values()->toArray();
 
-    expect($names)->toContain('list_projects')
-        ->and($names)->toContain('list_servers')
-        ->and($names)->toContain('get_server')
-        ->and($names)->toContain('reboot_server')
+    // Exactly the four native tools — no aliases, no REST-derived names.
+    expect($names)->toEqual(['list_projects', 'list_servers', 'get_server', 'reboot_server'])
         ->and(collect($response->json('result.tools'))->first(fn ($tool) => $tool['name'] === 'list_projects')['inputSchema'])
         ->toHaveKey('properties');
+});
+
+test('no resources or prompts are registered on the MCP server', function () {
+    $plainToken = $this->user->createToken('mcp-discovery', ['read'])->plainTextToken;
+    $this->mcpInitialize($plainToken);
+
+    $resources = $this->mcpRequest('resources/list', [], id: 7);
+    $prompts = $this->mcpRequest('prompts/list', [], id: 8);
+
+    expect($resources->json('result.resources'))->toEqual([])
+        ->and($prompts->json('result.prompts'))->toEqual([]);
 });
 
 test('tools/list describes reboot_server operational impact and confirmation behavior', function () {
