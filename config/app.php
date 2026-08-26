@@ -4,6 +4,7 @@ use App\Providers\AppServiceProvider;
 use App\Providers\DemoServiceProvider;
 use App\Providers\DNSProviderServiceProvider;
 use App\Providers\HorizonServiceProvider;
+use App\Providers\McpServiceProvider;
 use App\Providers\NotificationChannelServiceProvider;
 use App\Providers\PluginsServiceProvider;
 use App\Providers\RouteServiceProvider;
@@ -241,6 +242,7 @@ return [
         ServiceTypeServiceProvider::class,
         HorizonServiceProvider::class,
         WorkflowServiceProvider::class,
+        McpServiceProvider::class,
     ],
 
     /*
