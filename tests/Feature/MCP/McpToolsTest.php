@@ -1,10 +1,12 @@
 <?php
 
+use App\Actions\Server\RebootServer;
 use App\Enums\UserRole;
 use App\Models\Project;
 use App\Models\Server;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Testing\TestResponse;
+use Mockery\MockInterface;
 use Tests\Feature\MCP\Concerns\SpeaksMcp;
 
 uses(RefreshDatabase::class, SpeaksMcp::class);
@@ -216,9 +218,9 @@ test('get_server returns a single credential-free representation', function () {
 
     expect($payload['server']['id'])->toBe($server->id)
         ->and(array_keys($payload['server']))->toEqual([
-        'id', 'project_id', 'name', 'ip', 'local_ip', 'port', 'os', 'status',
-        'auto_update', 'auto_update_schedule', 'last_update_check', 'created_at', 'updated_at',
-    ])
+            'id', 'project_id', 'name', 'ip', 'local_ip', 'port', 'os', 'status',
+            'auto_update', 'auto_update_schedule', 'last_update_check', 'created_at', 'updated_at',
+        ])
         ->and(json_encode($payload))->not->toContain('super-secret')
         ->not->toContain('AAAA')
         ->not->toContain('provider_data');
@@ -308,16 +310,157 @@ test('get_server requires a read-capable token', function () {
     expect($payload['error']['code'])->toBe('forbidden_ability');
 });
 
+test('reboot_server denies a write-incapable token even with confirm and dispatches nothing', function () {
+    /** @var Server $server */
+    $server = Server::factory()->create([
+        'user_id' => $this->user->id,
+        'project_id' => $this->user->current_project_id,
+    ]);
+
+    /** @var MockInterface|RebootServer $spy */
+    $spy = $this->spy(RebootServer::class);
+
+    $plainToken = $this->user->createToken('mcp-read', ['read'])->plainTextToken;
+    $this->mcpInitialize($plainToken);
+
+    $payload = mcpToolPayload($this->mcpCallTool('reboot_server', [
+        'project_id' => $this->user->current_project_id,
+        'server_id' => $server->id,
+        'confirm' => true,
+    ]));
+
+    expect($payload['error']['code'])->toBe('forbidden_ability');
+
+    $spy->shouldNotHaveReceived('reboot');
+});
+
+test('reboot_server without explicit confirm returns confirmation_required and dispatches nothing', function () {
+    /** @var Server $server */
+    $server = Server::factory()->create([
+        'user_id' => $this->user->id,
+        'project_id' => $this->user->current_project_id,
+    ]);
+
+    /** @var MockInterface|RebootServer $spy */
+    $spy = $this->spy(RebootServer::class);
+
+    $plainToken = $this->user->createToken('mcp-rw', ['read', 'write'])->plainTextToken;
+    $this->mcpInitialize($plainToken);
+
+    // confirm omitted entirely.
+    expect(mcpToolPayload($this->mcpCallTool('reboot_server', [
+        'project_id' => $this->user->current_project_id,
+        'server_id' => $server->id,
+    ]))['error']['code'])->toBe('confirmation_required')
+    // confirm explicitly false → same outcome.
+        ->and(mcpToolPayload($this->mcpCallTool('reboot_server', [
+            'project_id' => $this->user->current_project_id,
+            'server_id' => $server->id,
+            'confirm' => false,
+        ]))['error']['code'])->toBe('confirmation_required');
+
+    $spy->shouldNotHaveReceived('reboot');
+});
+
+test('reboot_server checks scope before confirmation for out-of-scope tokens', function () {
+    /** @var Project $scopedProject */
+    $scopedProject = Project::factory()->create();
+    $scopedProject->users()->create([
+        'user_id' => $this->user->id,
+        'role' => UserRole::USER,
+    ]);
+    $this->user->update(['current_project_id' => $scopedProject->id]);
+
+    /** @var Project $targetProject */
+    $targetProject = Project::factory()->create();
+    $targetProject->users()->create([
+        'user_id' => $this->user->id,
+        'role' => UserRole::ADMIN,
+    ]);
+
+    /** @var Server $foreignServer */
+    $foreignServer = Server::factory()->create([
+        'user_id' => $this->user->id,
+        'project_id' => $targetProject->id,
+    ]);
+
+    /** @var MockInterface|RebootServer $spy */
+    $spy = $this->spy(RebootServer::class);
+
+    $plainToken = $this->user->createToken('mcp-scoped', ['read', 'write', 'project:'.$scopedProject->id])->plainTextToken;
+    $this->mcpInitialize($plainToken);
+
+    $payload = mcpToolPayload($this->mcpCallTool('reboot_server', [
+        'project_id' => $targetProject->id,
+        'server_id' => $foreignServer->id,
+        'confirm' => true,
+    ]));
+
+    expect($payload['error']['code'])->toBe('forbidden_scope')
+        ->and(json_encode($payload))->not->toContain((string) $foreignServer->ip);
+
+    $spy->shouldNotHaveReceived('reboot');
+});
+
+test('reboot_server with confirm dispatches RebootServer exactly once and returns a safe payload', function () {
+    /** @var Server $server */
+    $server = Server::factory()->create([
+        'user_id' => $this->user->id,
+        'project_id' => $this->user->current_project_id,
+    ]);
+
+    $action = Mockery::mock(RebootServer::class);
+    $action->shouldReceive('reboot')->once()->andReturn($server);
+    $this->app->instance(RebootServer::class, $action);
+
+    $plainToken = $this->user->createToken('mcp-rw', ['read', 'write'])->plainTextToken;
+    $this->mcpInitialize($plainToken);
+
+    $response = $this->mcpCallTool('reboot_server', [
+        'project_id' => $this->user->current_project_id,
+        'server_id' => $server->id,
+        'confirm' => true,
+    ]);
+
+    expect($response->json('result.isError'))->toBeFalse();
+
+    $payload = mcpToolPayload($response);
+
+    expect($payload['server']['id'])->toBe($server->id)
+        ->and(array_keys($payload['server']))->toEqual([
+        'id', 'project_id', 'name', 'ip', 'local_ip', 'port', 'os', 'status',
+        'auto_update', 'auto_update_schedule', 'last_update_check', 'created_at', 'updated_at',
+    ])
+        ->and(json_encode($payload))->not->toContain('provider_data')
+        ->not->toContain('AAAA');
+});
+
 test('tools/list exposes the registered read tools with schemas', function () {
     $plainToken = $this->user->createToken('mcp-discovery', ['read'])->plainTextToken;
     $this->mcpInitialize($plainToken);
 
     $response = $this->mcpListTools();
 
-    $names = collect($response->json('result.tools'))->pluck('name')->values()->toArray();
+    $tools = collect($response->json('result.tools'));
+    $names = $tools->pluck('name')->values()->toArray();
 
     expect($names)->toContain('list_projects')
         ->and($names)->toContain('list_servers')
+        ->and($names)->toContain('get_server')
+        ->and($names)->toContain('reboot_server')
         ->and(collect($response->json('result.tools'))->first(fn ($tool) => $tool['name'] === 'list_projects')['inputSchema'])
         ->toHaveKey('properties');
+});
+
+test('tools/list describes reboot_server operational impact and confirmation behavior', function () {
+    $plainToken = $this->user->createToken('mcp-discovery', ['read', 'write'])->plainTextToken;
+    $this->mcpInitialize($plainToken);
+
+    $reboot = collect($this->mcpListTools()->json('result.tools'))
+        ->first(fn ($tool) => $tool['name'] === 'reboot_server');
+
+    expect($reboot)->not->toBeNull()
+        ->and($reboot['description'])
+        ->toContain('Interrupts services on the server while it restarts.')
+        ->toContain('confirm: true');
 });

@@ -5,6 +5,7 @@ namespace App\Mcp;
 use App\Mcp\Tools\GetServerTool;
 use App\Mcp\Tools\ListProjectsTool;
 use App\Mcp\Tools\ListServersTool;
+use App\Mcp\Tools\RebootServerTool;
 use Laravel\Mcp\Server;
 use Laravel\Mcp\Server\Tool;
 
@@ -29,5 +30,6 @@ class VitoServer extends Server
         ListProjectsTool::class,
         ListServersTool::class,
         GetServerTool::class,
+        RebootServerTool::class,
     ];
 }
