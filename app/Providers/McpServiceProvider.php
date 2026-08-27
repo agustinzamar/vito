@@ -13,17 +13,12 @@ class McpServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        // laravel/mcp v0.8.x Mcp::web() takes no middleware argument; it returns
-        // the POST route with package middleware applied, so auth:sanctum is chained.
-        // One endpoint serves all four tools, so any MCP-capable token ability
-        // passes the coarse route gate; per-tool checks stay inside the tools.
+        // Tools enforce operation-specific authorization.
         Mcp::web('api/mcp', VitoServer::class)
             ->middleware(['auth:sanctum', 'ability:read,write'])
             ->name('api.mcp');
 
-        // laravel/mcp also registers unnamed GET/DELETE 405 stubs next to the
-        // POST route. The architecture suite requires every application route
-        // to be named and authenticated, so normalize those here too.
+        // Name and protect laravel/mcp's GET/DELETE routes.
         foreach (RouteFacade::getRoutes()->getRoutes() as $route) {
             if ($route->uri() !== 'api/mcp' || $route->getName() !== null) {
                 continue;
