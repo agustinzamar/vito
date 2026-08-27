@@ -2,6 +2,7 @@
 
 namespace App\Mcp;
 
+use App\Mcp\Tools\GetServerTool;
 use App\Mcp\Tools\ListProjectsTool;
 use App\Mcp\Tools\ListServersTool;
 use Laravel\Mcp\Server;
@@ -20,12 +21,13 @@ class VitoServer extends Server
     MARKDOWN;
 
     /**
-     * Tools are added slice by slice; PR2 adds the two read inventory tools.
+     * Tools are added slice by slice; PR3 adds get_server + reboot_server.
      *
      * @var array<int, Tool|class-string<Tool>>
      */
     protected array $tools = [
         ListProjectsTool::class,
         ListServersTool::class,
+        GetServerTool::class,
     ];
 }
