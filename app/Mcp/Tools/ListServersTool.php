@@ -5,6 +5,7 @@ namespace App\Mcp\Tools;
 use App\Mcp\Concerns\ResolvesAuthorizedProject;
 use App\Models\PersonalAccessToken;
 use App\Models\User;
+use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Tool;
@@ -19,6 +20,22 @@ class ListServersTool extends Tool
 
     protected string $description =
         'List the servers belonging to a specific Vito project. Requires the project_id of an accessible project.';
+
+    /**
+     * Advertise the required input so clients can call this tool from
+     * discovery alone. Runtime checks in handle() remain authoritative.
+     *
+     * @return array<string, mixed>
+     */
+    public function schema(JsonSchema $schema): array
+    {
+        return [
+            'project_id' => $schema->integer()
+                ->description('The id of the project whose servers should be listed.')
+                ->min(1)
+                ->required(),
+        ];
+    }
 
     /**
      * Handle the tool request.

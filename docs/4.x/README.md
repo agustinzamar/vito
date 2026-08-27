@@ -121,6 +121,7 @@ databases, deploy sites, and more — all from a clean dashboard.
 | Page | What's in it |
 | --- | --- |
 | [API](api.md) | Use the REST API to automate Vito |
+| [MCP](mcp.md) | Connect AI agents and MCP clients over authenticated HTTP |
 
 ## Admin
 
