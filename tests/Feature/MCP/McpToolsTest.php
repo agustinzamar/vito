@@ -1,0 +1,210 @@
+<?php
+
+use App\Enums\UserRole;
+use App\Models\Project;
+use App\Models\Server;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Testing\TestResponse;
+use Tests\Feature\MCP\Concerns\SpeaksMcp;
+
+uses(RefreshDatabase::class, SpeaksMcp::class);
+
+/**
+ * Decode the first text content block of a tools/call result.
+ *
+ * @return array<string, mixed>
+ */
+function mcpToolPayload(TestResponse $response): array
+{
+    return (array) json_decode((string) $response->json('result.content.0.text'), true);
+}
+
+test('list_projects returns visible projects with credential-free fields only', function () {
+    $plainToken = $this->user->createToken('mcp-read', ['read'])->plainTextToken;
+    $this->mcpInitialize($plainToken);
+
+    /** @var Project $secondProject */
+    $secondProject = Project::factory()->create();
+    $secondProject->users()->create([
+        'user_id' => $this->user->id,
+        'role' => UserRole::ADMIN,
+    ]);
+
+    $response = $this->mcpCallTool('list_projects');
+
+    $response->assertOk();
+    expect($response->json('result.isError'))->toBeFalse();
+
+    $payload = mcpToolPayload($response);
+
+    expect(count($payload['projects']))->toBe(2)
+        ->and(collect($payload['projects'])->pluck('id')->toArray())
+        ->toEqual([$this->user->current_project_id, $secondProject->id]);
+
+    foreach ($payload['projects'] as $project) {
+        expect(array_keys($project))->toEqual(['id', 'name', 'role', 'created_at', 'updated_at']);
+    }
+});
+
+test('list_projects is restricted to a token project scope', function () {
+    /** @var Project $scopedProject */
+    $scopedProject = Project::factory()->create();
+    $scopedProject->users()->create([
+        'user_id' => $this->user->id,
+        'role' => UserRole::USER,
+    ]);
+    $this->user->update(['current_project_id' => $scopedProject->id]);
+
+    /** @var Project $otherProject */
+    $otherProject = Project::factory()->create();
+    $otherProject->users()->create([
+        'user_id' => $this->user->id,
+        'role' => UserRole::USER,
+    ]);
+
+    $plainToken = $this->user->createToken('mcp-scoped', ['read', 'project:'.$scopedProject->id])->plainTextToken;
+    $this->mcpInitialize($plainToken);
+
+    $response = $this->mcpCallTool('list_projects');
+
+    $payload = mcpToolPayload($response);
+
+    expect(count($payload['projects']))->toBe(1)
+        ->and($payload['projects'][0]['id'])->toBe($scopedProject->id);
+});
+
+test('list_projects requires a read-capable token', function () {
+    $plainToken = $this->user->createToken('mcp-no-read', ['write'])->plainTextToken;
+    $this->mcpInitialize($plainToken);
+
+    $response = $this->mcpCallTool('list_projects');
+
+    $payload = mcpToolPayload($response);
+
+    expect($response->json('result.isError'))->toBeTrue()
+        ->and($payload['error']['code'])->toBe('forbidden_ability')
+        ->and($payload['error']['message'])->toBeString();
+});
+
+test('list_servers without project_id returns a stable validation error and performs no query', function () {
+    $plainToken = $this->user->createToken('mcp-read', ['read'])->plainTextToken;
+    $this->mcpInitialize($plainToken);
+
+    $response = $this->mcpCallTool('list_servers');
+
+    $payload = mcpToolPayload($response);
+
+    expect($response->json('result.isError'))->toBeTrue()
+        ->and($payload['error']['code'])->toBe('validation')
+        ->and($payload['error']['message'])->toContain('project_id');
+});
+
+test('list_servers with a non-integer project_id returns the same validation error', function () {
+    $plainToken = $this->user->createToken('mcp-read', ['read'])->plainTextToken;
+    $this->mcpInitialize($plainToken);
+
+    $payload = mcpToolPayload($this->mcpCallTool('list_servers', ['project_id' => 'abc']));
+
+    expect($payload['error']['code'])->toBe('validation');
+});
+
+test('list_servers returns only the requested project servers with safe fields', function () {
+    Server::factory()->count(2)->create([
+        'user_id' => $this->user->id,
+        'project_id' => $this->user->current_project_id,
+    ]);
+
+    /** @var Project $otherProject */
+    $otherProject = Project::factory()->create();
+    $otherProject->users()->create([
+        'user_id' => $this->user->id,
+        'role' => UserRole::ADMIN,
+    ]);
+    Server::factory()->create([
+        'user_id' => $this->user->id,
+        'project_id' => $otherProject->id,
+    ]);
+
+    $plainToken = $this->user->createToken('mcp-read', ['read'])->plainTextToken;
+    $this->mcpInitialize($plainToken);
+
+    $response = $this->mcpCallTool('list_servers', ['project_id' => $this->user->current_project_id]);
+
+    expect($response->json('result.isError'))->toBeFalse();
+
+    $payload = mcpToolPayload($response);
+
+    // The base TestCase already seeds one server in the current project,
+    // so 2 created + 1 seeded = 3; the other project's server must never appear.
+    expect(collect($payload['servers'])->pluck('project_id')->unique()->values()->toArray())
+        ->toEqual([$this->user->current_project_id])
+        ->and(count($payload['servers']))->toBe(3);
+
+    foreach ($payload['servers'] as $server) {
+        expect(array_keys($server))->toEqual([
+            'id', 'project_id', 'name', 'ip', 'local_ip', 'port', 'os', 'status',
+            'auto_update', 'auto_update_schedule', 'last_update_check', 'created_at', 'updated_at',
+        ])
+            ->and(json_encode($server))->not->toContain('super-secret')
+            ->not->toContain('AAAA')
+            ->not->toContain('provider_data');
+    }
+});
+
+test('list_servers denies a token scoped to another project with forbidden_scope', function () {
+    /** @var Project $scopedProject */
+    $scopedProject = Project::factory()->create();
+    $scopedProject->users()->create([
+        'user_id' => $this->user->id,
+        'role' => UserRole::USER,
+    ]);
+
+    /** @var Project $targetProject */
+    $targetProject = Project::factory()->create();
+    $targetProject->users()->create([
+        'user_id' => $this->user->id,
+        'role' => UserRole::ADMIN,
+    ]);
+
+    $plainToken = $this->user->createToken('mcp-scoped', ['read', 'project:'.$scopedProject->id])->plainTextToken;
+    $this->mcpInitialize($plainToken);
+
+    $payload = mcpToolPayload($this->mcpCallTool('list_servers', ['project_id' => $targetProject->id]));
+
+    expect(mcpToolPayload($this->mcpCallTool('list_servers', ['project_id' => $targetProject->id]))['error']['code'])
+        ->toBe('forbidden_scope')
+        ->and(json_encode($payload))->not->toContain((string) $targetProject->name);
+});
+
+test('list_servers returns not_found for a missing project', function () {
+    $plainToken = $this->user->createToken('mcp-read', ['read'])->plainTextToken;
+    $this->mcpInitialize($plainToken);
+
+    $payload = mcpToolPayload($this->mcpCallTool('list_servers', ['project_id' => 999999]));
+
+    expect($payload['error']['code'])->toBe('not_found')
+        ->and($payload['error']['message'])->toBe('The requested resource was not found.');
+});
+
+test('list_servers requires a read-capable token', function () {
+    $plainToken = $this->user->createToken('mcp-write-only', ['write'])->plainTextToken;
+    $this->mcpInitialize($plainToken);
+
+    $payload = mcpToolPayload($this->mcpCallTool('list_servers', ['project_id' => $this->user->current_project_id]));
+
+    expect($payload['error']['code'])->toBe('forbidden_ability');
+});
+
+test('tools/list exposes the registered read tools with schemas', function () {
+    $plainToken = $this->user->createToken('mcp-discovery', ['read'])->plainTextToken;
+    $this->mcpInitialize($plainToken);
+
+    $response = $this->mcpListTools();
+
+    $names = collect($response->json('result.tools'))->pluck('name')->values()->toArray();
+
+    expect($names)->toContain('list_projects')
+        ->and($names)->toContain('list_servers')
+        ->and(collect($response->json('result.tools'))->first(fn ($tool) => $tool['name'] === 'list_projects')['inputSchema'])
+        ->toHaveKey('properties');
+});

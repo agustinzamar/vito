@@ -2,6 +2,8 @@
 
 namespace App\Mcp;
 
+use App\Mcp\Tools\ListProjectsTool;
+use App\Mcp\Tools\ListServersTool;
 use Laravel\Mcp\Server;
 use Laravel\Mcp\Server\Tool;
 
@@ -18,10 +20,12 @@ class VitoServer extends Server
     MARKDOWN;
 
     /**
-     * Tools are added in a later slice; this skeleton establishes the
-     * authenticated transport and registration seam only.
+     * Tools are added slice by slice; PR2 adds the two read inventory tools.
      *
      * @var array<int, Tool|class-string<Tool>>
      */
-    protected array $tools = [];
+    protected array $tools = [
+        ListProjectsTool::class,
+        ListServersTool::class,
+    ];
 }
