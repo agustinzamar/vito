@@ -5,6 +5,7 @@ namespace App\Mcp\Tools;
 use App\Mcp\Concerns\ResolvesAuthorizedProject;
 use App\Models\PersonalAccessToken;
 use App\Models\User;
+use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Tool;
@@ -19,6 +20,26 @@ class GetServerTool extends Tool
 
     protected string $description =
         'Inspect a single Vito server by id within a specific project. Requires the project_id and server_id of an accessible server.';
+
+    /**
+     * Advertise the required inputs so clients can call this tool from
+     * discovery alone. Runtime checks in handle() remain authoritative.
+     *
+     * @return array<string, mixed>
+     */
+    public function schema(JsonSchema $schema): array
+    {
+        return [
+            'project_id' => $schema->integer()
+                ->description('The id of the project the server belongs to.')
+                ->min(1)
+                ->required(),
+            'server_id' => $schema->integer()
+                ->description('The id of the server to inspect.')
+                ->min(1)
+                ->required(),
+        ];
+    }
 
     /**
      * Handle the tool request.

@@ -21,11 +21,7 @@ class VitoServer extends Server
         confirmation.
     MARKDOWN;
 
-    /**
-     * Tools are added slice by slice; PR3 adds get_server + reboot_server.
-     *
-     * @var array<int, Tool|class-string<Tool>>
-     */
+    /** @var array<int, Tool|class-string<Tool>> */
     protected array $tools = [
         ListProjectsTool::class,
         ListServersTool::class,

@@ -6,6 +6,7 @@ use App\Actions\Server\RebootServer;
 use App\Mcp\Concerns\ResolvesAuthorizedProject;
 use App\Models\PersonalAccessToken;
 use App\Models\User;
+use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Tool;
@@ -22,6 +23,30 @@ class RebootServerTool extends Tool
     protected string $description =
         'Reboot a Vito server over SSH. Interrupts services on the server while it restarts. '
         .'Requires project_id, server_id, and explicit confirmation by passing confirm: true.';
+
+    /**
+     * Advertise the required inputs, including the explicit boolean
+     * confirmation, so clients can call this tool from discovery alone.
+     * Runtime checks in handle() remain authoritative.
+     *
+     * @return array<string, mixed>
+     */
+    public function schema(JsonSchema $schema): array
+    {
+        return [
+            'project_id' => $schema->integer()
+                ->description('The id of the project the server belongs to.')
+                ->min(1)
+                ->required(),
+            'server_id' => $schema->integer()
+                ->description('The id of the server to reboot.')
+                ->min(1)
+                ->required(),
+            'confirm' => $schema->boolean()
+                ->description('Must be true to confirm the reboot. Interrupts services on the server while it restarts.')
+                ->required(),
+        ];
+    }
 
     /**
      * Handle the tool request.

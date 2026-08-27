@@ -473,3 +473,20 @@ test('tools/list describes reboot_server operational impact and confirmation beh
         ->toContain('Interrupts services on the server while it restarts.')
         ->toContain('confirm: true');
 });
+
+test('tools/list publishes a usable input schema for every parameterized tool', function () {
+    $plainToken = $this->user->createToken('mcp-schema', ['read', 'write'])->plainTextToken;
+    $this->mcpInitialize($plainToken);
+
+    $tools = collect($this->mcpListTools()->json('result.tools'))->keyBy('name');
+
+    // list_projects takes no input; the other three must advertise their
+    // required parameters so a client can call them from discovery alone.
+    expect($tools['list_projects']['inputSchema']['properties'])->toBe([])
+        ->and($tools['list_servers']['inputSchema']['required'])->toBe(['project_id'])
+        ->and($tools['list_servers']['inputSchema']['properties']['project_id']['type'])->toBe('integer')
+        ->and($tools['get_server']['inputSchema']['required'])->toBe(['project_id', 'server_id'])
+        ->and($tools['get_server']['inputSchema']['properties']['server_id']['type'])->toBe('integer')
+        ->and($tools['reboot_server']['inputSchema']['required'])->toBe(['project_id', 'server_id', 'confirm'])
+        ->and($tools['reboot_server']['inputSchema']['properties']['confirm']['type'])->toBe('boolean');
+});
