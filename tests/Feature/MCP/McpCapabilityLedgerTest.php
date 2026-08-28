@@ -1,8 +1,8 @@
 <?php
 
-use PHPUnit\Framework\TestCase;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 
-uses(TestCase::class);
+uses(RefreshDatabase::class);
 
 /**
  * Phase 0 canonical MCP capability ledger integrity tests.
@@ -15,8 +15,8 @@ uses(TestCase::class);
  * operations, exactly four implemented native capabilities, and exactly 30
  * destructive operations (all 23 DELETEs plus 7 named non-DELETE extras).
  *
- * The test is intentionally framework-free: it only reads and validates a JSON
- * file, so it does not require a database or a booted Laravel application.
+ * The assertions only read and validate a JSON file. RefreshDatabase supports
+ * the repository's standard Feature test case setup.
  */
 function ledgerPath(): string
 {
