@@ -8,6 +8,7 @@ use App\Mcp\Tools\HealthTool;
 use App\Mcp\Tools\ListProjectsTool;
 use App\Mcp\Tools\ListServerProvidersTool;
 use App\Mcp\Tools\ListServersTool;
+use App\Mcp\Tools\ListStorageProvidersTool;
 use App\Mcp\Tools\RebootServerTool;
 use Laravel\Mcp\Server;
 use Laravel\Mcp\Server\Tool;
@@ -19,8 +20,8 @@ class VitoServer extends Server
     protected string $version = '1.0.0';
 
     protected string $instructions = <<<'MARKDOWN'
-        Inspect Vito health, projects, servers, and server providers. Reboot a
-        server only after explicit confirmation.
+        Inspect Vito health, projects, servers, server providers, and storage
+        providers. Reboot a server only after explicit confirmation.
     MARKDOWN;
 
     /** @var array<int, Tool|class-string<Tool>> */
@@ -30,6 +31,7 @@ class VitoServer extends Server
         ListServersTool::class,
         ListServerProvidersTool::class,
         GetServerProviderTool::class,
+        ListStorageProvidersTool::class,
         GetServerTool::class,
         RebootServerTool::class,
     ];
