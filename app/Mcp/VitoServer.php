@@ -3,6 +3,7 @@
 namespace App\Mcp;
 
 use App\Mcp\Tools\GetServerTool;
+use App\Mcp\Tools\HealthTool;
 use App\Mcp\Tools\ListProjectsTool;
 use App\Mcp\Tools\ListServersTool;
 use App\Mcp\Tools\RebootServerTool;
@@ -23,6 +24,7 @@ class VitoServer extends Server
 
     /** @var array<int, Tool|class-string<Tool>> */
     protected array $tools = [
+        HealthTool::class,
         ListProjectsTool::class,
         ListServersTool::class,
         GetServerTool::class,
