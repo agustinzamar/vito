@@ -4,6 +4,7 @@ namespace App\Mcp\Tools;
 
 use App\Actions\Server\RebootServer;
 use App\Mcp\Concerns\ResolvesAuthorizedProject;
+use App\Mcp\Support\ProjectContext;
 use App\Models\PersonalAccessToken;
 use App\Models\User;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
@@ -34,10 +35,10 @@ class RebootServerTool extends Tool
     public function schema(JsonSchema $schema): array
     {
         return [
+            // Optional: when omitted, inferred from a single token scope.
             'project_id' => $schema->integer()
-                ->description('The id of the project the server belongs to.')
-                ->min(1)
-                ->required(),
+                ->description('The id of the project the server belongs to. Optional: when omitted it is inferred from a single project:{id} token scope.')
+                ->min(1),
             'server_id' => $schema->integer()
                 ->description('The id of the server to reboot.')
                 ->min(1)
@@ -58,15 +59,6 @@ class RebootServerTool extends Tool
      */
     public function handle(Request $request): Response
     {
-        foreach (['project_id' => $request->get('project_id'), 'server_id' => $request->get('server_id')] as $param => $value) {
-            if (! is_numeric($value) || (int) $value < 1) {
-                return $this->mcpError(
-                    'validation',
-                    sprintf('The %s parameter is required and must be a positive integer.', $param)
-                );
-            }
-        }
-
         /** @var User $user */
         $user = $request->user();
 
@@ -80,7 +72,29 @@ class RebootServerTool extends Tool
             );
         }
 
-        $project = $this->authorizedProject((int) $request->get('project_id'));
+        // server_id is always required and validated before resolution.
+        $serverId = $request->get('server_id');
+
+        if (! is_numeric($serverId) || (int) $serverId < 1) {
+            return $this->mcpError(
+                'validation',
+                'The server_id parameter is required and must be a positive integer.'
+            );
+        }
+
+        // project_id is optional: explicit wins, otherwise inferred from a
+        // single token scope. Scope, Policy, and relationship checks below
+        // stay authoritative over the resolved id.
+        $projectId = (new ProjectContext)->resolveProjectId($request->get('project_id'), $token);
+
+        if ($projectId === null) {
+            return $this->mcpError(
+                'validation',
+                'The project_id parameter is required and must be a positive integer.'
+            );
+        }
+
+        $project = $this->authorizedProject($projectId);
 
         if ($project === null) {
             return $this->mcpError('not_found', 'The requested resource was not found.');
