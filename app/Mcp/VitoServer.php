@@ -5,6 +5,7 @@ namespace App\Mcp;
 use App\Mcp\Tools\GetServerTool;
 use App\Mcp\Tools\HealthTool;
 use App\Mcp\Tools\ListProjectsTool;
+use App\Mcp\Tools\ListServerProvidersTool;
 use App\Mcp\Tools\ListServersTool;
 use App\Mcp\Tools\RebootServerTool;
 use Laravel\Mcp\Server;
@@ -17,9 +18,8 @@ class VitoServer extends Server
     protected string $version = '1.0.0';
 
     protected string $instructions = <<<'MARKDOWN'
-        Manage Vito projects and servers: list projects, list servers within a
-        project, inspect a single server, and reboot a server after explicit
-        confirmation.
+        Inspect Vito health, projects, servers, and server providers. Reboot a
+        server only after explicit confirmation.
     MARKDOWN;
 
     /** @var array<int, Tool|class-string<Tool>> */
@@ -27,6 +27,7 @@ class VitoServer extends Server
         HealthTool::class,
         ListProjectsTool::class,
         ListServersTool::class,
+        ListServerProvidersTool::class,
         GetServerTool::class,
         RebootServerTool::class,
     ];

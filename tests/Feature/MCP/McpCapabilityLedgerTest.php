@@ -89,7 +89,7 @@ test('ledger keeps exactly 129 canonical (non-excluded) operations', function ()
     expect(count($canonical))->toBe(146 - 17);
 });
 
-test('ledger implements exactly the five native capabilities', function () {
+test('ledger implements exactly the six native capabilities', function () {
     $entries = ledgerEntries();
     $byKey = indexByKey($entries);
 
@@ -101,16 +101,27 @@ test('ledger implements exactly the five native capabilities', function () {
         'GET /api/projects',
         'GET /api/projects/{project}/servers',
         'GET /api/projects/{project}/servers/{server}',
+        'GET /api/server-providers',
         'POST /api/projects/{project}/servers/{server}/reboot',
     ];
 
-    expect($implemented)->toHaveCount(5);
+    expect($implemented)->toHaveCount(6);
     expect($implemented)->toEqualCanonicalizing($expectedNativeCapabilities);
 
     $reboot = $byKey['POST /api/projects/{project}/servers/{server}/reboot'] ?? null;
     expect($reboot)->not->toBeNull();
     expect($reboot['status'])->toBe('implemented');
     expect($reboot['risk'])->toBe('destructive');
+});
+
+test('ledger leaves exactly 123 operations as planned', function () {
+    $entries = ledgerEntries();
+
+    $planned = filterBy($entries, 'status', 'planned');
+    expect($planned)->toHaveCount(123);
+
+    // planned = total - excluded - implemented = 146 - 17 - 6.
+    expect(count($planned))->toBe(146 - 17 - 6);
 });
 
 test('ledger classifies exactly 30 operations as destructive', function () {
