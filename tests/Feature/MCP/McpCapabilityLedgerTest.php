@@ -12,7 +12,7 @@ uses(RefreshDatabase::class);
  * to an MCP capability status. These tests pin its invariants so drift is
  * caught immediately: 146 total operations, 17 deprecated project-scoped
  * provider/storage/source-control duplicates excluded, 129 canonical
- * operations, exactly four implemented native capabilities, and exactly 30
+ * operations, exactly five implemented native capabilities, and exactly 30
  * destructive operations (all 23 DELETEs plus 7 named non-DELETE extras).
  *
  * The assertions only read and validate a JSON file. RefreshDatabase supports
@@ -99,7 +99,7 @@ test('ledger keeps exactly 129 canonical (non-excluded) operations', function ()
     expect(count($canonical))->toBe(146 - 17);
 });
 
-test('ledger implements exactly the four native capabilities', function () {
+test('ledger implements exactly the five native capabilities', function () {
     $entries = ledgerEntries();
     $byKey = indexByKey($entries);
 
@@ -107,13 +107,14 @@ test('ledger implements exactly the four native capabilities', function () {
     sort($implemented);
 
     $expectedNativeCapabilities = [
+        'GET /api/health',
         'GET /api/projects',
         'GET /api/projects/{project}/servers',
         'GET /api/projects/{project}/servers/{server}',
         'POST /api/projects/{project}/servers/{server}/reboot',
     ];
 
-    expect($implemented)->toHaveCount(4);
+    expect($implemented)->toHaveCount(5);
     expect($implemented)->toEqualCanonicalizing($expectedNativeCapabilities);
 
     // The reboot native capability is also one of the destructive extras.

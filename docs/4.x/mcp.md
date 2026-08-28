@@ -2,7 +2,7 @@
 
 ## Introduction
 
-VitoDeploy ships with a first-party [MCP](https://modelcontextprotocol.io) server so AI agents and MCP-capable clients can work with your Vito instance over authenticated HTTP: list projects and servers, inspect a single server, and reboot a server after explicit confirmation.
+VitoDeploy ships with a first-party [MCP](https://modelcontextprotocol.io) server so AI agents and MCP-capable clients can work with your Vito instance over authenticated HTTP: check server health, list projects and servers, inspect a single server, and reboot a server after explicit confirmation.
 
 The MCP integration reuses the same credentials, authorization rules (abilities, token project scope, and Policies), and domain actions as Vito's dashboard and REST API. No separate credential type is introduced.
 
@@ -50,12 +50,13 @@ Example configuration for any MCP client that supports the Streamable HTTP trans
 }
 ```
 
-After connecting, run tool discovery (`tools/list`) to confirm the four tools below are available to your token.
+After connecting, run tool discovery (`tools/list`) to confirm the five tools below are available to your token.
 
 ## Tools
 
 | Tool | Abilities | Inputs | Description |
 |------|-----------|--------|-------------|
+| `health_check` | `read` or `write` | none | Project-free liveness probe: returns `success` and the running Vito version. |
 | `list_projects` | `read` | none | Projects visible to the token, filtered by token project scope and Policies. |
 | `list_servers` | `read` | `project_id` | Servers belonging to the requested project. |
 | `get_server` | `read` | `project_id`, `server_id` | One safe server representation (status, IP, OS, …). |
@@ -91,6 +92,6 @@ location /api/mcp {
 
 This first slice is intentionally partial:
 
-- Exactly four tools (`list_projects`, `list_servers`, `get_server`, `reboot_server`). There are no legacy aliases and no generic dispatching tool.
+- Exactly five tools (`health_check`, `list_projects`, `list_servers`, `get_server`, `reboot_server`). `health_check` is a project-free probe that any valid token (read or write) may call. There are no legacy aliases and no generic dispatching tool.
 - Streamable HTTP is the only transport; there is no stdio support.
 - Broader parity with the REST API (sites, databases, workflows, destructive operations) and other providers such as Hostinger are non-goals for this release.
