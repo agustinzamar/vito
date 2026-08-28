@@ -179,3 +179,148 @@ test('tools/list exposes list_server_providers with no input schema', function (
     expect($tool['inputSchema']['properties'])->toBe([])
         ->and($tool['inputSchema'])->not->toHaveKey('required');
 });
+
+test('get_server_provider requires a positive integer server_provider_id', function () {
+    $plainToken = $this->user->createToken('mcp-read', ['read'])->plainTextToken;
+    $this->mcpInitialize($plainToken);
+
+    $payload = providerPayload($this->mcpCallTool('get_server_provider', ['server_provider_id' => 0]));
+
+    expect($payload['error']['code'])->toBe('validation')
+        ->and($payload['error']['message'])->toBeString();
+});
+
+test('get_server_provider requires a read-capable token', function () {
+    $plainToken = $this->user->createToken('mcp-write-only', ['write'])->plainTextToken;
+    $this->mcpInitialize($plainToken);
+
+    $payload = providerPayload($this->mcpCallTool('get_server_provider', ['server_provider_id' => 1]));
+
+    expect($payload['error']['code'])->toBe('forbidden_ability')
+        ->and($payload['error']['message'])->toBeString();
+});
+
+test('get_server_provider returns not_found for an unknown provider id', function () {
+    $plainToken = $this->user->createToken('mcp-read', ['read'])->plainTextToken;
+    $this->mcpInitialize($plainToken);
+
+    $payload = providerPayload($this->mcpCallTool('get_server_provider', ['server_provider_id' => 999999]));
+
+    expect($payload['error']['code'])->toBe('not_found')
+        ->and($payload['error']['message'])->toBeString();
+});
+
+test('get_server_provider returns not_found for a provider owned by another user', function () {
+    /** @var User $other */
+    $other = User::factory()->create();
+    $other->ensureHasDefaultProject();
+
+    /** @var ServerProvider $othersProvider */
+    $othersProvider = ServerProvider::factory()->create([
+        'user_id' => $other->id,
+        'project_id' => null,
+    ]);
+
+    $plainToken = $this->user->createToken('mcp-read', ['read'])->plainTextToken;
+    $this->mcpInitialize($plainToken);
+
+    $payload = providerPayload($this->mcpCallTool('get_server_provider', ['server_provider_id' => $othersProvider->id]));
+
+    expect($payload['error']['code'])->toBe('not_found')
+        ->and($payload['error']['message'])->toBeString();
+});
+
+test('get_server_provider returns forbidden_scope when the token lacks project access', function () {
+    /** @var Project $deniedProject */
+    $deniedProject = Project::factory()->create();
+    $deniedProject->users()->create([
+        'user_id' => $this->user->id,
+        'role' => UserRole::ADMIN,
+    ]);
+
+    /** @var ServerProvider $mine */
+    $mine = ServerProvider::factory()->create([
+        'user_id' => $this->user->id,
+        'project_id' => $deniedProject->id,
+    ]);
+
+    $plainToken = $this->user->createToken('mcp-scoped', ['read', 'project:'.$this->user->current_project_id])->plainTextToken;
+    $this->mcpInitialize($plainToken);
+
+    $payload = providerPayload($this->mcpCallTool('get_server_provider', ['server_provider_id' => $mine->id]));
+
+    expect($payload['error']['code'])->toBe('forbidden_scope')
+        ->and($payload['error']['message'])->toBeString();
+});
+
+test('get_server_provider returns the safe representation of an owned provider', function () {
+    /** @var ServerProvider $provider */
+    $provider = ServerProvider::factory()->create([
+        'user_id' => $this->user->id,
+        'project_id' => $this->user->current_project_id,
+    ]);
+
+    $plainToken = $this->user->createToken('mcp-read', ['read'])->plainTextToken;
+    $this->mcpInitialize($plainToken);
+
+    $response = $this->mcpCallTool('get_server_provider', ['server_provider_id' => $provider->id]);
+
+    expect($response->json('result.isError'))->toBeFalse();
+
+    $payload = providerPayload($response);
+
+    expect($payload)->toHaveKey('server_provider');
+    expect(array_keys($payload['server_provider']))->toEqual([
+        'id', 'project_id', 'global', 'name', 'provider', 'created_at', 'updated_at',
+    ]);
+    expect($payload['server_provider']['id'])->toBe($provider->id);
+    expect($payload['server_provider']['global'])->toBeFalse();
+    expect($payload['server_provider']['project_id'])->toBe($this->user->current_project_id);
+});
+
+test('get_server_provider never leaks credentials or secret fields', function () {
+    /** @var ServerProvider $provider */
+    $provider = ServerProvider::factory()->create([
+        'user_id' => $this->user->id,
+        'project_id' => $this->user->current_project_id,
+        'credentials' => ['api_key' => 'PROVIDER-SECRET-XYZ', 'token' => 'hunter2'],
+    ]);
+
+    $plainToken = $this->user->createToken('mcp-read', ['read'])->plainTextToken;
+    $this->mcpInitialize($plainToken);
+
+    $response = $this->mcpCallTool('get_server_provider', ['server_provider_id' => $provider->id]);
+
+    expect($response->json('result.isError'))->toBeFalse();
+
+    $rendered = (string) $response->json('result.content.0.text');
+    $payload = json_decode($rendered, true);
+
+    expect(array_keys($payload['server_provider']))->toEqual([
+        'id', 'project_id', 'global', 'name', 'provider', 'created_at', 'updated_at',
+    ]);
+
+    expect($rendered)->not->toContain('PROVIDER-SECRET-XYZ')
+        ->not->toContain('hunter2')
+        ->not->toContain('user_id')
+        ->not->toContain('credentials')
+        ->not->toContain('editable_data')
+        ->not->toContain('provider_data')
+        ->not->toContain('access_token');
+});
+
+test('tools/list exposes get_server_provider with the server_provider_id input schema', function () {
+    $plainToken = $this->user->createToken('mcp-discovery', ['read'])->plainTextToken;
+    $this->mcpInitialize($plainToken);
+
+    $tools = collect($this->mcpListTools()->json('result.tools'));
+    $names = $tools->pluck('name')->values()->toArray();
+
+    expect($names)->toContain('get_server_provider');
+
+    $tool = $tools->first(fn ($t) => $t['name'] === 'get_server_provider');
+    expect($tool['inputSchema']['properties'])->toHaveKey('server_provider_id');
+    expect($tool['inputSchema']['properties']['server_provider_id']['type'])->toBe('integer');
+    expect($tool['inputSchema']['properties']['server_provider_id']['minimum'])->toBe(1);
+    expect($tool['inputSchema']['required'])->toContain('server_provider_id');
+});
