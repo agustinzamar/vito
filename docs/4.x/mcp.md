@@ -50,7 +50,7 @@ Example configuration for any MCP client that supports the Streamable HTTP trans
 }
 ```
 
-After connecting, run tool discovery (`tools/list`) to confirm the seven tools below are available to your token.
+After connecting, run tool discovery (`tools/list`) to confirm the eight tools below are available to your token.
 
 ## Tools
 
@@ -61,6 +61,7 @@ After connecting, run tool discovery (`tools/list`) to confirm the seven tools b
 | `list_servers` | `read` | `project_id` | Servers belonging to the requested project. |
 | `list_server_providers` | `read` | none | Server providers visible to the token: global providers plus those scoped to a project the token can reach. |
 | `get_server_provider` | `read` | `server_provider_id` | One safe server-provider representation (profile, provider, global flag, timestamps). |
+| `list_storage_providers` | `read` | none | Storage providers visible to the token: global providers plus those scoped to a project the token can reach. |
 | `get_server` | `read` | `project_id`, `server_id` | One safe server representation (status, IP, OS, …). |
 | `reboot_server` | `write` | `project_id`, `server_id`, `confirm` | Reboots the server via the same action the dashboard uses. |
 
@@ -94,6 +95,6 @@ location /api/mcp {
 
 This first slice is intentionally partial:
 
-- Exactly seven tools (`health_check`, `list_projects`, `list_servers`, `list_server_providers`, `get_server_provider`, `get_server`, `reboot_server`). `health_check` is a project-free probe that any valid token (read or write) may call. There are no legacy aliases and no generic dispatching tool.
+- Exactly eight tools (`health_check`, `list_projects`, `list_servers`, `list_server_providers`, `get_server_provider`, `list_storage_providers`, `get_server`, `reboot_server`). `health_check` is a project-free probe that any valid token (read or write) may call. There are no legacy aliases and no generic dispatching tool.
 - Streamable HTTP is the only transport; there is no stdio support.
 - Broader parity with the REST API (sites, databases, workflows, destructive operations) and other providers such as Hostinger are non-goals for this release.
