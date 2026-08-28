@@ -4,6 +4,7 @@ namespace App\Mcp\Tools;
 
 use App\Actions\Server\RebootServer;
 use App\Mcp\Concerns\ResolvesAuthorizedProject;
+use App\Mcp\Support\ProjectContext;
 use App\Models\PersonalAccessToken;
 use App\Models\User;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
@@ -35,9 +36,8 @@ class RebootServerTool extends Tool
     {
         return [
             'project_id' => $schema->integer()
-                ->description('The id of the project the server belongs to.')
-                ->min(1)
-                ->required(),
+                ->description('The id of the project the server belongs to. Optional: when omitted it is inferred from a single project:{id} token scope.')
+                ->min(1),
             'server_id' => $schema->integer()
                 ->description('The id of the server to reboot.')
                 ->min(1)
@@ -58,15 +58,6 @@ class RebootServerTool extends Tool
      */
     public function handle(Request $request): Response
     {
-        foreach (['project_id' => $request->get('project_id'), 'server_id' => $request->get('server_id')] as $param => $value) {
-            if (! is_numeric($value) || (int) $value < 1) {
-                return $this->mcpError(
-                    'validation',
-                    sprintf('The %s parameter is required and must be a positive integer.', $param)
-                );
-            }
-        }
-
         /** @var User $user */
         $user = $request->user();
 
@@ -80,7 +71,25 @@ class RebootServerTool extends Tool
             );
         }
 
-        $project = $this->authorizedProject((int) $request->get('project_id'));
+        $serverId = $request->get('server_id');
+
+        if (! is_numeric($serverId) || (int) $serverId < 1) {
+            return $this->mcpError(
+                'validation',
+                'The server_id parameter is required and must be a positive integer.'
+            );
+        }
+
+        $projectId = (new ProjectContext)->resolveProjectId($request->get('project_id'), $token);
+
+        if ($projectId === null) {
+            return $this->mcpError(
+                'validation',
+                'The project_id parameter is required and must be a positive integer.'
+            );
+        }
+
+        $project = $this->authorizedProject($projectId);
 
         if ($project === null) {
             return $this->mcpError('not_found', 'The requested resource was not found.');
@@ -94,14 +103,17 @@ class RebootServerTool extends Tool
             return $this->mcpError('not_found', 'The requested resource was not found.');
         }
 
-        // Relationship lookup collapses cross-project probes into not_found.
+        // Finding the server via the project relationship (rather than a
+        // global lookup) keeps a foreign project/server pair from leaking
+        // whether the server exists: it simply collapses into not_found.
         $server = $project->servers()->find((int) $request->get('server_id'));
 
         if ($server === null) {
             return $this->mcpError('not_found', 'The requested resource was not found.');
         }
 
-        // Defense-in-depth re-check on the resolved model (ServerPolicy@update).
+        // Defense-in-depth: re-check the Policy on the resolved model in
+        // case relationship scoping alone is ever weakened.
         if (! $user->can('update', $server)) {
             return $this->mcpError('not_found', 'The requested resource was not found.');
         }
