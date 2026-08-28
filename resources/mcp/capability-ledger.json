@@ -6,7 +6,7 @@
   {"operationId": "put-dns-providers-dnsprovider", "method": "PUT", "path": "/api/dns-providers/{dnsProvider}", "domain": "DNS Providers", "risk": "write", "status": "planned"},
   {"operationId": "get-dns-providers-dnsprovider-available", "method": "GET", "path": "/api/dns-providers/{dnsProvider}/available", "domain": "DNS Providers", "risk": "read", "status": "planned"},
   {"operationId": "get-domains-dnsprovider-available", "method": "GET", "path": "/api/domains/{dnsProvider}/available", "domain": "Domains", "risk": "read", "status": "planned"},
-  {"operationId": "get-health", "method": "GET", "path": "/api/health", "domain": "Health", "risk": "read", "status": "planned"},
+  {"operationId": "get-health", "method": "GET", "path": "/api/health", "domain": "Health", "risk": "read", "status": "implemented"},
   {"operationId": "get-projects", "method": "GET", "path": "/api/projects", "domain": "Projects", "risk": "read", "status": "implemented"},
   {"operationId": "post-projects", "method": "POST", "path": "/api/projects", "domain": "Projects", "risk": "write", "status": "planned"},
   {"operationId": "delete-projects-project", "method": "DELETE", "path": "/api/projects/{project}", "domain": "Projects", "risk": "destructive", "status": "planned"},
