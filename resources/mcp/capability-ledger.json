@@ -128,7 +128,7 @@
   {"operationId": "post-projects-project-workflows-workflow-runs", "method": "POST", "path": "/api/projects/{project}/workflows/{workflow}/runs", "domain": "Workflow Runs", "risk": "write", "status": "planned"},
   {"operationId": "get-projects-project-workflows-workflow-runs-workflowrun", "method": "GET", "path": "/api/projects/{project}/workflows/{workflow}/runs/{workflowRun}", "domain": "Workflow Runs", "risk": "read", "status": "planned"},
   {"operationId": "get-projects-project-workflows-workflow-runs-workflowrun-log", "method": "GET", "path": "/api/projects/{project}/workflows/{workflow}/runs/{workflowRun}/log", "domain": "Workflow Runs", "risk": "read", "status": "planned"},
-  {"operationId": "get-server-providers", "method": "GET", "path": "/api/server-providers", "domain": "User Server Providers", "risk": "read", "status": "planned"},
+  {"operationId": "get-server-providers", "method": "GET", "path": "/api/server-providers", "domain": "User Server Providers", "risk": "read", "status": "implemented"},
   {"operationId": "post-server-providers", "method": "POST", "path": "/api/server-providers", "domain": "User Server Providers", "risk": "write", "status": "planned"},
   {"operationId": "delete-server-providers-serverprovider", "method": "DELETE", "path": "/api/server-providers/{serverProvider}", "domain": "User Server Providers", "risk": "destructive", "status": "planned"},
   {"operationId": "get-server-providers-serverprovider", "method": "GET", "path": "/api/server-providers/{serverProvider}", "domain": "User Server Providers", "risk": "read", "status": "planned"},

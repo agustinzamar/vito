@@ -4,6 +4,7 @@ namespace App\Mcp;
 
 use App\Mcp\Tools\GetServerTool;
 use App\Mcp\Tools\ListProjectsTool;
+use App\Mcp\Tools\ListServerProvidersTool;
 use App\Mcp\Tools\ListServersTool;
 use App\Mcp\Tools\RebootServerTool;
 use Laravel\Mcp\Server;
@@ -25,6 +26,7 @@ class VitoServer extends Server
     protected array $tools = [
         ListProjectsTool::class,
         ListServersTool::class,
+        ListServerProvidersTool::class,
         GetServerTool::class,
         RebootServerTool::class,
     ];
