@@ -135,7 +135,7 @@
   {"operationId": "put-server-providers-serverprovider", "method": "PUT", "path": "/api/server-providers/{serverProvider}", "domain": "User Server Providers", "risk": "write", "status": "planned"},
   {"operationId": "get-server-providers-serverprovider-regions", "method": "GET", "path": "/api/server-providers/{serverProvider}/regions", "domain": "User Server Providers", "risk": "read", "status": "planned"},
   {"operationId": "get-server-providers-serverprovider-regions-region-plans", "method": "GET", "path": "/api/server-providers/{serverProvider}/regions/{region}/plans", "domain": "User Server Providers", "risk": "read", "status": "planned"},
-  {"operationId": "get-source-controls", "method": "GET", "path": "/api/source-controls", "domain": "User Source Controls", "risk": "read", "status": "planned"},
+  {"operationId": "get-source-controls", "method": "GET", "path": "/api/source-controls", "domain": "User Source Controls", "risk": "read", "status": "implemented"},
   {"operationId": "post-source-controls", "method": "POST", "path": "/api/source-controls", "domain": "User Source Controls", "risk": "write", "status": "planned"},
   {"operationId": "delete-source-controls-sourcecontrol", "method": "DELETE", "path": "/api/source-controls/{sourceControl}", "domain": "User Source Controls", "risk": "destructive", "status": "planned"},
   {"operationId": "get-source-controls-sourcecontrol", "method": "GET", "path": "/api/source-controls/{sourceControl}", "domain": "User Source Controls", "risk": "read", "status": "planned"},
