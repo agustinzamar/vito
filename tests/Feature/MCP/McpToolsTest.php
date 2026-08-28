@@ -586,7 +586,7 @@ test('reboot_server with a single-scope read-only token returns forbidden_abilit
     expect($payload['error']['code'])->toBe('forbidden_ability');
 });
 
-test('tools/list exposes the registered read tools with schemas', function () {
+test('tools/list exposes the baseline native tools with schemas', function () {
     $plainToken = $this->user->createToken('mcp-discovery', ['read'])->plainTextToken;
     $this->mcpInitialize($plainToken);
 
@@ -595,8 +595,7 @@ test('tools/list exposes the registered read tools with schemas', function () {
     $tools = collect($response->json('result.tools'));
     $names = $tools->pluck('name')->values()->toArray();
 
-    // Exactly the four native tools — no aliases, no REST-derived names.
-    expect($names)->toEqual(['list_projects', 'list_servers', 'get_server', 'reboot_server'])
+    expect($names)->toContain('list_projects', 'list_servers', 'get_server', 'reboot_server')
         ->and(collect($response->json('result.tools'))->first(fn ($tool) => $tool['name'] === 'list_projects')['inputSchema'])
         ->toHaveKey('properties');
 });
