@@ -435,6 +435,157 @@ test('reboot_server with confirm dispatches RebootServer exactly once and return
         ->not->toContain('AAAA');
 });
 
+test('list_servers infers project_id from a single token project scope', function () {
+    /** @var Project $scopedProject */
+    $scopedProject = Project::factory()->create();
+    $scopedProject->users()->create([
+        'user_id' => $this->user->id,
+        'role' => UserRole::ADMIN,
+    ]);
+    Server::factory()->count(2)->create([
+        'user_id' => $this->user->id,
+        'project_id' => $scopedProject->id,
+    ]);
+
+    $plainToken = $this->user->createToken('mcp-scoped-single', ['read', 'project:'.$scopedProject->id])->plainTextToken;
+    $this->mcpInitialize($plainToken);
+
+    $response = $this->mcpCallTool('list_servers');
+
+    expect($response->json('result.isError'))->toBeFalse();
+
+    $payload = mcpToolPayload($response);
+
+    expect(collect($payload['servers'])->pluck('project_id')->unique()->values()->toArray())
+        ->toEqual([$scopedProject->id])
+        ->and(count($payload['servers']))->toBe(2);
+});
+
+test('get_server infers project_id from a single token project scope', function () {
+    /** @var Project $scopedProject */
+    $scopedProject = Project::factory()->create();
+    $scopedProject->users()->create([
+        'user_id' => $this->user->id,
+        'role' => UserRole::ADMIN,
+    ]);
+    /** @var Server $server */
+    $server = Server::factory()->create([
+        'user_id' => $this->user->id,
+        'project_id' => $scopedProject->id,
+    ]);
+
+    $plainToken = $this->user->createToken('mcp-scoped-single', ['read', 'project:'.$scopedProject->id])->plainTextToken;
+    $this->mcpInitialize($plainToken);
+
+    $response = $this->mcpCallTool('get_server', ['server_id' => $server->id]);
+
+    expect($response->json('result.isError'))->toBeFalse();
+
+    $payload = mcpToolPayload($response);
+
+    expect($payload['server']['id'])->toBe($server->id)
+        ->and($payload['server']['project_id'])->toBe($scopedProject->id);
+});
+
+test('reboot_server infers project_id from a single token project scope and dispatches once', function () {
+    /** @var Project $scopedProject */
+    $scopedProject = Project::factory()->create();
+    $scopedProject->users()->create([
+        'user_id' => $this->user->id,
+        'role' => UserRole::ADMIN,
+    ]);
+    /** @var Server $server */
+    $server = Server::factory()->create([
+        'user_id' => $this->user->id,
+        'project_id' => $scopedProject->id,
+    ]);
+
+    $action = Mockery::mock(RebootServer::class);
+    $action->shouldReceive('reboot')->once()->andReturn($server);
+    $this->app->instance(RebootServer::class, $action);
+
+    $plainToken = $this->user->createToken('mcp-scoped-single-rw', ['read', 'write', 'project:'.$scopedProject->id])->plainTextToken;
+    $this->mcpInitialize($plainToken);
+
+    $response = $this->mcpCallTool('reboot_server', ['server_id' => $server->id, 'confirm' => true]);
+
+    expect($response->json('result.isError'))->toBeFalse();
+
+    $payload = mcpToolPayload($response);
+
+    expect($payload['server']['id'])->toBe($server->id);
+});
+
+test('list_servers requires project_id when the token is scoped to multiple projects', function () {
+    /** @var Project $projectA */
+    $projectA = Project::factory()->create();
+    $projectA->users()->create(['user_id' => $this->user->id, 'role' => UserRole::USER]);
+    /** @var Project $projectB */
+    $projectB = Project::factory()->create();
+    $projectB->users()->create(['user_id' => $this->user->id, 'role' => UserRole::USER]);
+
+    $plainToken = $this->user->createToken('mcp-multi-scope', ['read', 'project:'.$projectA->id, 'project:'.$projectB->id])->plainTextToken;
+    $this->mcpInitialize($plainToken);
+
+    $payload = mcpToolPayload($this->mcpCallTool('list_servers'));
+
+    expect($payload['error']['code'])->toBe('validation')
+        ->and($payload['error']['message'])->toContain('project_id');
+});
+
+test('list_servers explicit project_id is honored over multi-scope ambiguity', function () {
+    /** @var Project $projectA */
+    $projectA = Project::factory()->create();
+    $projectA->users()->create(['user_id' => $this->user->id, 'role' => UserRole::ADMIN]);
+    Server::factory()->count(2)->create([
+        'user_id' => $this->user->id,
+        'project_id' => $projectA->id,
+    ]);
+
+    /** @var Project $projectB */
+    $projectB = Project::factory()->create();
+    $projectB->users()->create(['user_id' => $this->user->id, 'role' => UserRole::USER]);
+
+    $plainToken = $this->user->createToken('mcp-multi-scope', ['read', 'project:'.$projectA->id, 'project:'.$projectB->id])->plainTextToken;
+    $this->mcpInitialize($plainToken);
+
+    $response = $this->mcpCallTool('list_servers', ['project_id' => $projectA->id]);
+
+    expect($response->json('result.isError'))->toBeFalse();
+
+    $payload = mcpToolPayload($response);
+
+    expect(collect($payload['servers'])->pluck('project_id')->unique()->values()->toArray())
+        ->toEqual([$projectA->id])
+        ->and(count($payload['servers']))->toBe(2);
+});
+
+test('list_servers with a single-scope token but no read ability returns forbidden_ability, not inference', function () {
+    /** @var Project $scopedProject */
+    $scopedProject = Project::factory()->create();
+    $scopedProject->users()->create(['user_id' => $this->user->id, 'role' => UserRole::USER]);
+
+    $plainToken = $this->user->createToken('mcp-write-single', ['write', 'project:'.$scopedProject->id])->plainTextToken;
+    $this->mcpInitialize($plainToken);
+
+    $payload = mcpToolPayload($this->mcpCallTool('list_servers'));
+
+    expect($payload['error']['code'])->toBe('forbidden_ability');
+});
+
+test('reboot_server with a single-scope read-only token returns forbidden_ability, not inference', function () {
+    /** @var Project $scopedProject */
+    $scopedProject = Project::factory()->create();
+    $scopedProject->users()->create(['user_id' => $this->user->id, 'role' => UserRole::USER]);
+
+    $plainToken = $this->user->createToken('mcp-read-single', ['read', 'project:'.$scopedProject->id])->plainTextToken;
+    $this->mcpInitialize($plainToken);
+
+    $payload = mcpToolPayload($this->mcpCallTool('reboot_server', ['server_id' => 1, 'confirm' => true]));
+
+    expect($payload['error']['code'])->toBe('forbidden_ability');
+});
+
 test('tools/list exposes the registered read tools with schemas', function () {
     $plainToken = $this->user->createToken('mcp-discovery', ['read'])->plainTextToken;
     $this->mcpInitialize($plainToken);
@@ -480,13 +631,18 @@ test('tools/list publishes a usable input schema for every parameterized tool', 
 
     $tools = collect($this->mcpListTools()->json('result.tools'))->keyBy('name');
 
-    // list_projects takes no input; the other three must advertise their
-    // required parameters so a client can call them from discovery alone.
+    // The serializer omits `required` entirely when a tool has no required
+    // properties, so read it defensively.
+    $requiredOf = static fn (string $name): array => $tools[$name]['inputSchema']['required'] ?? [];
+
     expect($tools['list_projects']['inputSchema']['properties'])->toBe([])
-        ->and($tools['list_servers']['inputSchema']['required'])->toBe(['project_id'])
+        ->and($requiredOf('list_servers'))->toBe([])
+        ->and($tools['list_servers']['inputSchema']['properties'])->toHaveKey('project_id')
         ->and($tools['list_servers']['inputSchema']['properties']['project_id']['type'])->toBe('integer')
-        ->and($tools['get_server']['inputSchema']['required'])->toBe(['project_id', 'server_id'])
+        ->and($requiredOf('get_server'))->toBe(['server_id'])
+        ->and($tools['get_server']['inputSchema']['properties'])->toHaveKey('project_id')
         ->and($tools['get_server']['inputSchema']['properties']['server_id']['type'])->toBe('integer')
-        ->and($tools['reboot_server']['inputSchema']['required'])->toBe(['project_id', 'server_id', 'confirm'])
+        ->and($requiredOf('reboot_server'))->toBe(['server_id', 'confirm'])
+        ->and($tools['reboot_server']['inputSchema']['properties'])->toHaveKey('project_id')
         ->and($tools['reboot_server']['inputSchema']['properties']['confirm']['type'])->toBe('boolean');
 });

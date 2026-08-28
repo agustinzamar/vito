@@ -3,6 +3,7 @@
 namespace App\Mcp\Tools;
 
 use App\Mcp\Concerns\ResolvesAuthorizedProject;
+use App\Mcp\Support\ProjectContext;
 use App\Models\PersonalAccessToken;
 use App\Models\User;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
@@ -31,9 +32,8 @@ class ListServersTool extends Tool
     {
         return [
             'project_id' => $schema->integer()
-                ->description('The id of the project whose servers should be listed.')
-                ->min(1)
-                ->required(),
+                ->description('The id of the project whose servers should be listed. Optional: when omitted it is inferred from a single project:{id} token scope.')
+                ->min(1),
         ];
     }
 
@@ -42,15 +42,6 @@ class ListServersTool extends Tool
      */
     public function handle(Request $request): Response
     {
-        $projectId = $request->get('project_id');
-
-        if (! is_numeric($projectId) || (int) $projectId < 1) {
-            return $this->mcpError(
-                'validation',
-                'The project_id parameter is required and must be a positive integer.'
-            );
-        }
-
         /** @var User $user */
         $user = $request->user();
 
@@ -64,7 +55,16 @@ class ListServersTool extends Tool
             );
         }
 
-        $project = $this->authorizedProject((int) $projectId);
+        $projectId = (new ProjectContext)->resolveProjectId($request->get('project_id'), $token);
+
+        if ($projectId === null) {
+            return $this->mcpError(
+                'validation',
+                'The project_id parameter is required and must be a positive integer.'
+            );
+        }
+
+        $project = $this->authorizedProject($projectId);
 
         if ($project === null) {
             return $this->mcpError('not_found', 'The requested resource was not found.');
