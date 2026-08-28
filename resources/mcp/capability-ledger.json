@@ -140,7 +140,7 @@
   {"operationId": "delete-source-controls-sourcecontrol", "method": "DELETE", "path": "/api/source-controls/{sourceControl}", "domain": "User Source Controls", "risk": "destructive", "status": "planned"},
   {"operationId": "get-source-controls-sourcecontrol", "method": "GET", "path": "/api/source-controls/{sourceControl}", "domain": "User Source Controls", "risk": "read", "status": "planned"},
   {"operationId": "put-source-controls-sourcecontrol", "method": "PUT", "path": "/api/source-controls/{sourceControl}", "domain": "User Source Controls", "risk": "write", "status": "planned"},
-  {"operationId": "get-storage-providers", "method": "GET", "path": "/api/storage-providers", "domain": "User Storage Providers", "risk": "read", "status": "planned"},
+  {"operationId": "get-storage-providers", "method": "GET", "path": "/api/storage-providers", "domain": "User Storage Providers", "risk": "read", "status": "implemented"},
   {"operationId": "post-storage-providers", "method": "POST", "path": "/api/storage-providers", "domain": "User Storage Providers", "risk": "write", "status": "planned"},
   {"operationId": "delete-storage-providers-storageprovider", "method": "DELETE", "path": "/api/storage-providers/{storageProvider}", "domain": "User Storage Providers", "risk": "destructive", "status": "planned"},
   {"operationId": "get-storage-providers-storageprovider", "method": "GET", "path": "/api/storage-providers/{storageProvider}", "domain": "User Storage Providers", "risk": "read", "status": "planned"},
