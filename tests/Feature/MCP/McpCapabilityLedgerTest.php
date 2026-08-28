@@ -1,22 +1,12 @@
 <?php
 
-use PHPUnit\Framework\TestCase;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 
-uses(TestCase::class);
+uses(RefreshDatabase::class);
 
 /**
- * Phase 0 canonical MCP capability ledger integrity tests.
- *
- * The ledger (resources/mcp/capability-ledger.json) is the single source of
- * truth that maps every Vito API operation from the dereferenced OpenAPI spec
- * to an MCP capability status. These tests pin its invariants so drift is
- * caught immediately: 146 total operations, 17 deprecated project-scoped
- * provider/storage/source-control duplicates excluded, 129 canonical
- * operations, exactly four implemented native capabilities, and exactly 30
- * destructive operations (all 23 DELETEs plus 7 named non-DELETE extras).
- *
- * The test is intentionally framework-free: it only reads and validates a JSON
- * file, so it does not require a database or a booted Laravel application.
+ * These tests pin the ledger's invariants so drift is caught immediately,
+ * since the ledger is the single source of truth for MCP capability status.
  */
 function ledgerPath(): string
 {
@@ -116,7 +106,6 @@ test('ledger implements exactly the four native capabilities', function () {
     expect($implemented)->toHaveCount(4);
     expect($implemented)->toEqualCanonicalizing($expectedNativeCapabilities);
 
-    // The reboot native capability is also one of the destructive extras.
     $reboot = $byKey['POST /api/projects/{project}/servers/{server}/reboot'] ?? null;
     expect($reboot)->not->toBeNull();
     expect($reboot['status'])->toBe('implemented');
@@ -130,13 +119,11 @@ test('ledger classifies exactly 30 operations as destructive', function () {
     $destructive = filterBy($entries, 'risk', 'destructive');
     expect($destructive)->toHaveCount(30);
 
-    // All 23 DELETE operations must stay destructive, regardless of status.
     $deletes = filterBy($entries, 'method', 'DELETE');
     foreach ($deletes as $delete) {
         expect($delete['risk'])->toBe('destructive', entryKey($delete).' must be destructive');
     }
 
-    // The 7 named non-DELETE destructive extras must stay destructive.
     $namedExtras = [
         'POST /api/projects/{project}/servers/{server}/reboot',
         'POST /api/projects/{project}/servers/{server}/upgrade',
