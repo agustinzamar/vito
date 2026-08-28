@@ -69,6 +69,32 @@ test('invalid bearer token is rejected like a missing one', function () {
     $response->assertStatus(401);
 });
 
+test('read-only token can initialize and discover MCP tools', function () {
+    $plainToken = $this->user->createToken('mcp-read-only', ['read'])->plainTextToken;
+
+    $response = $this->mcpInitialize($plainToken);
+
+    $response->assertOk();
+    expect($this->mcpSessionId)->not->toBeNull();
+
+    $tools = $this->mcpListTools();
+    $tools->assertOk();
+    expect($tools->json('result.tools'))->toBeArray();
+});
+
+test('write-only token can initialize and discover MCP tools', function () {
+    $plainToken = $this->user->createToken('mcp-write-only', ['write'])->plainTextToken;
+
+    $response = $this->mcpInitialize($plainToken);
+
+    $response->assertOk();
+    expect($this->mcpSessionId)->not->toBeNull();
+
+    $tools = $this->mcpListTools();
+    $tools->assertOk();
+    expect($tools->json('result.tools'))->toBeArray();
+});
+
 test('MCP endpoint only accepts POST, keeping exactly one HTTP transport', function () {
     $plainToken = $this->user->createToken('mcp-transport', ['read'])->plainTextToken;
 
