@@ -2,6 +2,7 @@
 
 namespace App\Mcp;
 
+use App\Mcp\Tools\GetServerProviderTool;
 use App\Mcp\Tools\GetServerTool;
 use App\Mcp\Tools\HealthTool;
 use App\Mcp\Tools\ListProjectsTool;
@@ -28,6 +29,7 @@ class VitoServer extends Server
         ListProjectsTool::class,
         ListServersTool::class,
         ListServerProvidersTool::class,
+        GetServerProviderTool::class,
         GetServerTool::class,
         RebootServerTool::class,
     ];
