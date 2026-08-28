@@ -12,7 +12,7 @@ uses(RefreshDatabase::class);
  * to an MCP capability status. These tests pin its invariants so drift is
  * caught immediately: 146 total operations, 17 deprecated project-scoped
  * provider/storage/source-control duplicates excluded, 129 canonical
- * operations, exactly six implemented native capabilities, 123 planned
+ * operations, exactly seven implemented native capabilities, 122 planned
  * operations, and exactly 30 destructive operations (all 23 DELETEs plus 7
  * named non-DELETE extras).
  *
@@ -100,7 +100,7 @@ test('ledger keeps exactly 129 canonical (non-excluded) operations', function ()
     expect(count($canonical))->toBe(146 - 17);
 });
 
-test('ledger implements exactly the six native capabilities', function () {
+test('ledger implements exactly the seven native capabilities', function () {
     $entries = ledgerEntries();
     $byKey = indexByKey($entries);
 
@@ -113,10 +113,11 @@ test('ledger implements exactly the six native capabilities', function () {
         'GET /api/projects/{project}/servers',
         'GET /api/projects/{project}/servers/{server}',
         'GET /api/server-providers',
+        'GET /api/server-providers/{serverProvider}',
         'POST /api/projects/{project}/servers/{server}/reboot',
     ];
 
-    expect($implemented)->toHaveCount(6);
+    expect($implemented)->toHaveCount(7);
     expect($implemented)->toEqualCanonicalizing($expectedNativeCapabilities);
 
     // The reboot native capability is also one of the destructive extras.
@@ -126,14 +127,14 @@ test('ledger implements exactly the six native capabilities', function () {
     expect($reboot['risk'])->toBe('destructive');
 });
 
-test('ledger leaves exactly 123 operations as planned', function () {
+test('ledger leaves exactly 122 operations as planned', function () {
     $entries = ledgerEntries();
 
     $planned = filterBy($entries, 'status', 'planned');
-    expect($planned)->toHaveCount(123);
+    expect($planned)->toHaveCount(122);
 
-    // planned = total - excluded - implemented = 146 - 17 - 6.
-    expect(count($planned))->toBe(146 - 17 - 6);
+    // planned = total - excluded - implemented = 146 - 17 - 7.
+    expect(count($planned))->toBe(146 - 17 - 7);
 });
 
 test('ledger classifies exactly 30 operations as destructive', function () {
