@@ -89,7 +89,7 @@ test('ledger keeps exactly 129 canonical (non-excluded) operations', function ()
     expect(count($canonical))->toBe(146 - 17);
 });
 
-test('ledger implements exactly the four native capabilities', function () {
+test('ledger implements exactly the five native capabilities', function () {
     $entries = ledgerEntries();
     $byKey = indexByKey($entries);
 
@@ -97,13 +97,14 @@ test('ledger implements exactly the four native capabilities', function () {
     sort($implemented);
 
     $expectedNativeCapabilities = [
+        'GET /api/health',
         'GET /api/projects',
         'GET /api/projects/{project}/servers',
         'GET /api/projects/{project}/servers/{server}',
         'POST /api/projects/{project}/servers/{server}/reboot',
     ];
 
-    expect($implemented)->toHaveCount(4);
+    expect($implemented)->toHaveCount(5);
     expect($implemented)->toEqualCanonicalizing($expectedNativeCapabilities);
 
     $reboot = $byKey['POST /api/projects/{project}/servers/{server}/reboot'] ?? null;
